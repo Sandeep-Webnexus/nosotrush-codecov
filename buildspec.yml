@@ -1,0 +1,34 @@
+version: 0.2
+env:
+  secrets-manager:
+    MY_APP_ENV_SECRETS: arn:aws:secretsmanager:us-east-1:872967988958:secret:owe-env-bdETgx
+phases:
+  install:
+    runtime-versions:
+      nodejs: 16
+    commands:
+      - echo Installing dependencies...
+      - npm install --legacy-peer-deps
+  pre_build:
+    commands:
+      - echo $REACT_APP_TEST
+      - echo Running pre-deploy build for production environment....
+      - GENERATE_SOURCEMAP=false REACT_APP_STAGE=prod node
+        --max_old_space_size=16384 node_modules/.bin/react-scripts build
+  build:
+    commands:
+      - echo Build phase completed.
+  post_build:
+    commands:
+      - echo Zipping the build artifacts...
+      - zip -r build.zip build
+      - echo Deploying to S3.....
+      - aws s3 sync build/ s3://rds-prod-stagging --delete
+      - aws cloudfront create-invalidation --distribution-id E1A4HZIJQUMOUM
+        --paths '/*'  && aws cloudfront create-invalidation --distribution-id
+        E1AJIOE9ONVWNA --paths '/*'
+
+artifacts:
+  files:
+    - '**/*'
+  discard-paths: 'yes'

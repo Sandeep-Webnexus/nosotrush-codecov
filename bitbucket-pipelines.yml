@@ -1,0 +1,88 @@
+image: node:16  # Use the Node.js Docker image, version 16, for the pipeline
+
+pipelines:
+  branches:
+    # Pipeline for the 'test-deploy-new' branch
+    test-deploy-new:
+      - step:
+          name: Install and Build (Test)
+          caches:
+            - node
+          script:
+            - export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID_OWE_DEV
+            - export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY_OWE_DEV
+            - npm install --legacy-peer-deps
+            - npm run predeploy:test
+      - step:
+          name: Deploy to S3 and Invalidate CloudFront (Test)
+          deployment: test
+          script:
+            - npm run deploy:test
+            - npm run postdeploy:test
+
+    # Pipeline for the 'new-stag-deployment' branch
+    new-stag-deployment:
+      - step:
+          name: Install and Build (Staging)
+          caches:
+            - node
+          script:
+            - export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID_OWE_PRD
+            - export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY_OWE_PRD
+            - npm install --legacy-peer-deps
+            - npm run predeploy:stg
+      - step:
+          name: Deploy to S3 and Invalidate CloudFront (Staging)
+          deployment: staging
+          script:
+            - npm run deploy:stg
+            - npm run postdeploy:stg
+
+    # Pipeline for the 'prod-deploy' branch
+    #prod-deploy:
+      #- step:
+          #name: Install and Build (Production)
+          #caches:
+            #- node
+          #script:
+            #- export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID_OWE_PRD
+            #- export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY_OWE_PRD
+            #- npm install --legacy-peer-deps
+            #- npm run predeploy:prd
+      #- step:
+         # name: Deploy to S3 and Invalidate CloudFront (Production)
+          #deployment: production
+         # script:
+            #- npm run deploy:prd
+            #- npm run postdeploy:prd
+
+    # New omerge pipeline
+    omerge:
+      - step:
+          name: Run tests and collect coverage
+          caches:
+            - node  # Cache node_modules to speed up the next builds
+          script:
+            - echo "Checking out repository..."
+            - git clone git@bitbucket.org:support1wayeducation/owe-platform.git
+            - echo "Setting up Node.js"
+            - npm install  # Install dependencies
+            - echo "Running tests with coverage"
+            - npx jest --coverage  # Run Jest tests with coverage
+            - echo "Uploading coverage to Codecov"
+            - curl -s https://codecov.io/bash | bash -s -- -t $CODECOV_TOKEN  # Upload coverage to Codecov
+
+  default:
+    - step:
+        name: Run tests and collect coverage
+        caches:
+          - node  # Cache node_modules to speed up the next builds
+        script:
+          - echo "Checking out repository..."
+          - git clone git@bitbucket.org:support1wayeducation/owe-platform.git
+          - echo "Setting up Node.js"
+          - npm install  # Install dependencies
+          - echo "Running tests with coverage"
+          - npx jest --coverage  # Run Jest tests with coverage
+          - echo "Uploading coverage to Codecov"
+          - curl -s https://codecov.io/bash | bash -s -- -t $CODECOV_TOKEN  # Upload coverage to Codecov
